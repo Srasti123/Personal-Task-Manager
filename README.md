@@ -1,6 +1,12 @@
-# Personal Task Manager
+# 📋 Personal Task Manager
 
-A simple full-stack task manager built with Node.js, Express, and vanilla HTML/CSS/JavaScript.
+![React](https://img.shields.io/badge/React-18-blue?logo=react)
+![Node.js](https://img.shields.io/badge/Node.js-Backend-green?logo=node.js)
+![Express](https://img.shields.io/badge/Express.js-API-black?logo=express)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-yellow?logo=javascript)
+![Vercel](https://img.shields.io/badge/Vercel-Deployed-black?logo=vercel)
+
+A full-stack task management application with CRUD operations, filtering, searching, overdue tracking, and persistent storage.
 
 ## Features
 
