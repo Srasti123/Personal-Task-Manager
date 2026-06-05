@@ -11,7 +11,7 @@ A simple full-stack task manager built with Node.js, Express, and vanilla HTML/C
 - Delete tasks with confirmation
 - Filter tasks by All, Active, Completed
 - Search tasks by title
-- Persist tasks to a JSON file across server restarts
+- Persist tasks in browser local storage
 - Overdue tasks are visually highlighted
 - Empty state UI when no tasks are found
 - Drag-and-drop reorder tasks

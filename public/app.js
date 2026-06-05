@@ -13,6 +13,7 @@ const cancelEdit = document.getElementById('cancel-edit');
 const template = document.getElementById('task-item-template');
 const toastContainer = document.getElementById('toast-container');
 
+const STORAGE_KEY = 'personalTaskManagerTasks';
 let tasks = [];
 let filterStatus = 'all';
 let editingTaskId = null;
@@ -30,6 +31,43 @@ function isOverdue(task) {
   return new Date(task.dueDate).setHours(23, 59, 59, 999) < new Date();
 }
 
+function loadTasks() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  try {
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveTasks() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+}
+
+function sortTasks(items) {
+  return items.slice().sort((a, b) => {
+    if (typeof a.order === 'number' && typeof b.order === 'number') {
+      return a.order - b.order;
+    }
+    if (typeof a.order === 'number') return -1;
+    if (typeof b.order === 'number') return 1;
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+}
+
+function createTaskPayload(body) {
+  return {
+    id: String(Date.now()) + Math.random().toString(16).slice(2),
+    title: String(body.title || '').trim(),
+    description: String(body.description || '').trim(),
+    dueDate: body.dueDate ? String(body.dueDate) : '',
+    completed: false,
+    createdAt: new Date().toISOString(),
+    order: typeof body.order === 'number' ? body.order : undefined
+  };
+}
+
 function getFilteredTasks() {
   const query = searchInput.value.trim().toLowerCase();
   return tasks.filter((task) => {
@@ -41,6 +79,26 @@ function getFilteredTasks() {
     const matchesSearch = task.title.toLowerCase().includes(query);
     return matchesStatus && matchesSearch;
   });
+}
+
+function createToast(message, type = 'success') {
+  if (!toastContainer) return;
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  toastContainer.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(12px)';
+    setTimeout(() => toast.remove(), 200);
+  }, 2000);
+}
+
+function updateCounts() {
+  const activeCount = tasks.filter((task) => !task.completed).length;
+  const completedCount = tasks.filter((task) => task.completed).length;
+  countActive.textContent = `${activeCount} active`;
+  countCompleted.textContent = `${completedCount} completed`;
 }
 
 function renderTasks() {
@@ -97,12 +155,12 @@ function renderTasks() {
     item.addEventListener('dragleave', () => {
       item.classList.remove('drag-over');
     });
-    item.addEventListener('drop', async (event) => {
+    item.addEventListener('drop', (event) => {
       event.preventDefault();
       item.classList.remove('drag-over');
       const targetId = task.id;
       if (dragSourceId && dragSourceId !== targetId) {
-        await reorderTasks(dragSourceId, targetId);
+        reorderTasks(dragSourceId, targetId);
       }
     });
 
@@ -112,68 +170,60 @@ function renderTasks() {
   updateCounts();
 }
 
-function updateCounts() {
-  const activeCount = tasks.filter((task) => !task.completed).length;
-  const completedCount = tasks.filter((task) => task.completed).length;
-  countActive.textContent = `${activeCount} active`;
-  countCompleted.textContent = `${completedCount} completed`;
-}
-
-async function fetchTasks() {
-  const response = await fetch('/api/tasks');
-  tasks = await response.json();
+function addTask(payload) {
+  const task = createTaskPayload(payload);
+  tasks.push(task);
+  saveTasks();
   renderTasks();
+  createToast('Task added successfully.');
 }
 
-async function saveTask(payload, method = 'POST', id = '') {
-  const url = id ? `/api/tasks/${id}` : '/api/tasks';
-  const response = await fetch(url, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Unable to save task.');
-  }
-  return await response.json();
-}
-
-function createToast(message, type = 'success') {
-  if (!toastContainer) return;
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.textContent = message;
-  toastContainer.appendChild(toast);
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateY(12px)';
-    setTimeout(() => toast.remove(), 200);
-  }, 2000);
-}
-
-async function handleFormSubmit(event) {
-  event.preventDefault();
-  const payload = {
-    title: titleInput.value.trim(),
-    description: descriptionInput.value.trim(),
-    dueDate: dueDateInput.value || ''
+function updateTask(id, payload) {
+  const index = tasks.findIndex((task) => task.id === id);
+  if (index === -1) return;
+  tasks[index] = {
+    ...tasks[index],
+    title: payload.title,
+    description: payload.description,
+    dueDate: payload.dueDate
   };
+  saveTasks();
+  renderTasks();
+  createToast('Task updated successfully.');
+}
 
-  try {
-    if (editingTaskId) {
-      await saveTask(payload, 'PUT', editingTaskId);
-      createToast('Task updated successfully.');
-    } else {
-      await saveTask(payload, 'POST');
-      createToast('Task added successfully.');
-    }
-    resetForm();
-    await fetchTasks();
-  } catch (error) {
-    createToast(error.message, 'error');
-  }
+function toggleCompletion(taskId, completed) {
+  const index = tasks.findIndex((task) => task.id === taskId);
+  if (index === -1) return;
+  tasks[index].completed = completed;
+  saveTasks();
+  renderTasks();
+  createToast(`Marked task ${completed ? 'complete' : 'active'}.`);
+}
+
+function deleteTask(taskId, title) {
+  const confirmed = confirm(`Delete task "${title}"? This cannot be undone.`);
+  if (!confirmed) return;
+  tasks = tasks.filter((task) => task.id !== taskId);
+  saveTasks();
+  renderTasks();
+  createToast('Task deleted.');
+}
+
+function reorderTasks(sourceId, targetId) {
+  const currentOrder = tasks.map((task) => task.id);
+  const sourceIndex = currentOrder.indexOf(sourceId);
+  const targetIndex = currentOrder.indexOf(targetId);
+  if (sourceIndex === -1 || targetIndex === -1) return;
+  currentOrder.splice(sourceIndex, 1);
+  currentOrder.splice(targetIndex, 0, sourceId);
+  tasks = currentOrder.map((id, index) => ({
+    ...tasks.find((task) => task.id === id),
+    order: index
+  }));
+  saveTasks();
+  renderTasks();
+  createToast('Task order updated.');
 }
 
 function startEdit(task) {
@@ -195,49 +245,25 @@ function resetForm() {
   form.reset();
 }
 
-async function toggleCompletion(taskId, completed) {
-  try {
-    await saveTask({ completed }, 'PUT', taskId);
-    createToast(`Marked task ${completed ? 'complete' : 'active'}.`);
-    await fetchTasks();
-  } catch (error) {
-    createToast(error.message, 'error');
+function handleFormSubmit(event) {
+  event.preventDefault();
+  const payload = {
+    title: titleInput.value.trim(),
+    description: descriptionInput.value.trim(),
+    dueDate: dueDateInput.value || ''
+  };
+
+  if (!payload.title) {
+    createToast('Task title is required.', 'error');
+    return;
   }
-}
 
-async function deleteTask(taskId, title) {
-  const confirmed = confirm(`Delete task "${title}"? This cannot be undone.`);
-  if (!confirmed) return;
-
-  const response = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
-  if (response.ok) {
-    createToast('Task deleted.');
-    await fetchTasks();
+  if (editingTaskId) {
+    updateTask(editingTaskId, payload);
   } else {
-    createToast('Unable to delete task.', 'error');
+    addTask(payload);
   }
-}
-
-async function reorderTasks(sourceId, targetId) {
-  const currentOrder = tasks.map((task) => task.id);
-  const sourceIndex = currentOrder.indexOf(sourceId);
-  const targetIndex = currentOrder.indexOf(targetId);
-  if (sourceIndex === -1 || targetIndex === -1) return;
-
-  currentOrder.splice(sourceIndex, 1);
-  currentOrder.splice(targetIndex, 0, sourceId);
-
-  const response = await fetch('/api/tasks/reorder', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ order: currentOrder })
-  });
-
-  if (response.ok) {
-    tasks = await response.json();
-    renderTasks();
-    createToast('Task order updated.');
-  }
+  resetForm();
 }
 
 filterButtons.forEach((button) => {
@@ -249,18 +275,17 @@ filterButtons.forEach((button) => {
   });
 });
 
+searchInput.addEventListener('input', () => renderTasks());
 searchInput.addEventListener('focus', () => {
   searchInput.placeholder = 'Start typing to search…';
 });
-
 searchInput.addEventListener('blur', () => {
   if (!searchInput.value) {
     searchInput.placeholder = 'Find tasks by title';
   }
 });
-
-searchInput.addEventListener('input', () => renderTasks());
 form.addEventListener('submit', handleFormSubmit);
 cancelEdit.addEventListener('click', resetForm);
 
-fetchTasks();
+tasks = loadTasks();
+renderTasks();
