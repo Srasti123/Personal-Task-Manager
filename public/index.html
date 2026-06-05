@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal Task Manager</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header>
+      <div>
+        <h1>Personal Task Manager</h1>
+        <p>Build and manage your tasks quickly with search, filter, and due-date reminders.</p>
+      </div>
+    </header>
+
+    <main>
+      <section class="task-board">
+        <div class="task-form-card">
+          <h2 id="form-title">Add New Task</h2>
+          <form id="task-form">
+            <label>
+              Title <span class="required">*</span>
+              <input type="text" id="task-title" required placeholder="Enter a title" />
+            </label>
+            <label>
+              Description
+              <textarea id="task-description" placeholder="Optional description"></textarea>
+            </label>
+            <label>
+              Due Date
+              <input type="date" id="task-due-date" />
+            </label>
+            <div class="form-actions">
+              <button type="submit" id="submit-button">Add Task</button>
+              <button type="button" id="cancel-edit" class="secondary hidden">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="task-list-card">
+          <div class="toolbar">
+            <div class="search-wrapper">
+              <label for="search-input">Search</label>
+              <input id="search-input" type="search" placeholder="Find tasks by title" />
+            </div>
+            <div class="filter-group" role="group" aria-label="Filter tasks">
+              <button class="filter-button active" data-status="all">All</button>
+              <button class="filter-button" data-status="active">Active</button>
+              <button class="filter-button" data-status="completed">Completed</button>
+            </div>
+          </div>
+
+          <div class="summary-bar">
+            <span id="count-active">0 active</span>
+            <span id="count-completed">0 completed</span>
+          </div>
+
+          <div id="task-list" class="task-list" aria-live="polite"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast-container" aria-live="polite" aria-atomic="true" class="toast-container"></div>
+
+  <template id="task-item-template">
+    <article class="task-item" draggable="true">
+      <div class="task-checkbox">
+        <input type="checkbox" class="toggle-complete" />
+      </div>
+      <div class="task-body">
+        <div class="task-header">
+          <h3 class="task-title"></h3>
+          <span class="task-meta"></span>
+        </div>
+        <p class="task-description"></p>
+      </div>
+      <div class="task-actions">
+        <button class="edit-button" title="Edit task">Edit</button>
+        <button class="delete-button" title="Delete task">Delete</button>
+      </div>
+    </article>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
